@@ -1,0 +1,221 @@
+html {
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+html,
+body,
+.page-wrapper {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.top-nav {
+  position: relative;
+  padding: 10px;
+}
+
+.main-histogram {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.histogram {
+  width: 256px;
+  height: 57px;
+  background: #ddd;
+}
+
+.button {
+  border-radius: 4px;
+  border: 1px solid #666;
+  background: white;
+  cursor: pointer;
+  font: 400 11px system-ui, sans-serif;
+  padding: 1px 7px 2px;
+}
+
+.hidden-file-input {
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.pixel-color {
+  display: inline-block;
+  margin-left: 10px;
+  width: 30px;
+  height: 10px;
+}
+
+.side-nav {
+  position: absolute;
+  left: 0;
+  top: 60px;
+  bottom: 0;
+  width: 300px;
+  padding: 5px 0;
+  background-color: #eee;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+.right-nav {
+  position: absolute;
+  right: 0px;
+  top: 60px;
+  bottom: 0;
+  width: 160px;
+  padding: 5px 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+
+.viewer-container {
+  position: absolute;
+  left: 340px;
+  top: 60px;
+  right: 60px;
+  bottom: 0;
+  background: black;
+}
+
+.extra-viewers {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 33%;
+  height: 100%;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.extra-viewer {
+  width: 100%;
+  height: 33%;
+  pointer-events: initial;
+}
+
+.layer-controls {
+  display: flex;
+  border-bottom: 1px solid #ddd;
+}
+
+.thumbnail-area {
+  width: 60px;
+  padding: 5px
+}
+
+.thumbnail {
+  position: relative;
+}
+
+.slider-set {
+  flex-grow: 1;
+  position: relative;
+  padding: 10px 5px;
+}
+
+.title {
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.move-up {
+  position: absolute;
+  background: url('../img/move-up.svg') center center no-repeat;
+  background-size: contain;
+  right: 95px;
+  top: 11px;
+  width: 15px;
+  height: 15px;
+  opacity: 0.4;
+  cursor: pointer;
+}
+
+.visible {
+  position: absolute;
+  background: url('../img/visible-off.svg') center center no-repeat;
+  background-size: contain;
+  right: 35px;
+  top: 11px;
+  width: 20px;
+  height: 20px;
+  opacity: 0.4;
+  cursor: pointer;
+}
+
+.visible.selected {
+  background-image: url('../img/visible-on.svg');
+}
+
+.extra-viewer-button {
+  position: absolute;
+  background: url('../img/extra-viewer.svg') center center no-repeat;
+  background-size: contain;
+  right: 65px;
+  top: 11px;
+  width: 20px;
+  height: 20px;
+  opacity: 0.4;
+  cursor: pointer;
+}
+
+.extra-viewer-button.selected {
+  opacity: 1;
+}
+
+.expander {
+  position: absolute;
+  background: url('../img/expander.svg') center center no-repeat;
+  background-size: contain;
+  right: 5px;
+  top: 10px;
+  width: 20px;
+  height: 20px;
+  opacity: 0.4;
+  transform: rotate(90deg);
+  cursor: pointer;
+}
+
+.slider-set.expanded .expander {
+  transform: rotate(270deg);
+}
+
+.slider-set.not-visible .expander {
+  display: none;
+}
+
+.input-row {
+  margin-top: 15px;
+}
+
+.slider-set .extras {
+  display: none;
+}
+
+.slider-set.expanded .extras {
+  display: block;
+}
+
+.slider-set.expanded.not-visible .extras {
+  display: none;
+}
+
+.slider-set.not-visible .input-row {
+  display: none;
+}
+
+.copy-alert {
+  display: inline-block;
+}
+
+.hidden {
+  display: none;
+}

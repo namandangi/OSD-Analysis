@@ -1,0 +1,14 @@
+.osdGisHeader {
+    font-style: italic;
+    font-size: 20px;
+  }
+
+
+  .viewer-container {
+    position: relative;
+    left: 140px;
+    top: 60px;
+    right: 60px;
+    bottom: 0;
+    background: black;
+  }

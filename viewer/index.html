@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>OSD Analysis Viewer</title>
+    <script type="text/javascript" src="//cdn.webix.com/edge/webix.js"></script>
+    <script src="lib/d3.js" type="text/javascript"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="//cdn.webix.com/edge/webix.css"
+    />
+    <link rel="stylesheet" type="text/css" href="styles/postGisOSDViewer.css" />
+    <script
+      src="node_modules/openseadragon/build/openseadragon/openseadragon.js"
+      type="text/javascript"
+    ></script>
+    <script src="lib/openseadragon-svg-overlay.js"></script>
+
+    <script type="module" src="main.js"></script>
+  </head>
+
+  <body style="width: 100%; height: 100%">
+    <div id="osdContainer" style="width: 100%; height: 100%">
+      <div
+        id="osdViewer1"
+        style="width: 800px; height: 600px"
+        class="viewer-container openseadragon"
+      ></div>
+    </div>
+  </body>
+</html>
