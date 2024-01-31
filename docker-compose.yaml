@@ -1,0 +1,60 @@
+version: "3"
+volumes:
+  postgis-data-volume:
+services:
+  gisdb:
+    build: gisdb/
+    volumes:
+      - postgis-data-volume:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=osdgis
+      - POSTGRES_USER=docker
+      - POSTGRES_PASS=docker
+      - ALLOW_IP_RANGE=0.0.0.0/0
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_MULTIPLE_EXTENSIONS=postgis,hstore,postgis_topology,postgis_raster,pgrouting,pgvector
+    expose:
+      - "5435"
+    ports:
+      - "5435:5432"
+    restart: on-failure
+    healthcheck:
+      test: "exit 0"
+    command: -p 5435
+  viewer:
+    build: viewer/
+    expose:
+      - "3001"
+      - "35730" # For livereload
+    container_name: viewer
+    ports:
+      - "3001:3001"
+      - "35730:35730"
+    volumes:
+      - ${PWD}/viewer:/app
+  api:
+    container_name: osd-analysis-api
+    build: api/
+    command: bash -c 'while !</dev/tcp/gisdb/5435; do sleep 1; done; uvicorn app.main:app --host 0.0.0.0 --port 85 --reload'
+    ports:
+      - "85:85"
+    expose:
+      - "85"
+    depends_on:
+      - gisdb
+    volumes:
+      - ${PWD}/api/app:/code/app
+
+  # pgadmin4:
+  #   image: dpage/pgadmin4
+  #   container_name: pgadmin4
+  #   ports:
+  #     - '5050:80'
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: dsagis@dsagis.io
+  #     PGADMIN_DEFAULT_PASSWORD: dsagis
+  #   links:
+  #     - postgisdb
+  #   depends_on:
+  #     - postgisdb
+
