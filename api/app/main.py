@@ -13,7 +13,7 @@ from .utils import computeColorSimilarityForFeatureSet
 
 
 from .services import engine, create_db_and_tables
-from .models import SimpleRectangles, DSAImage, tileFeatures, featureExtractionParams, imageFeatureSets, NPfeatureSet
+from .models import SimpleRectangles, DSAImage
 from .utils import extend_dict, pretify_address
 
 app = FastAPI()
@@ -38,9 +38,9 @@ def read_root():
 # IMAGE ENDPOINTS
 
 @app.get("/lookupImage")
-async def lookupImage(imageName: str, dsaApiUrl: str):
+async def lookupImage(imageId: str, dsaApiUrl: str):
     with Session(engine) as session:
-        imageInfo = session.query(DSAImage).filter(DSAImage.imageName == imageName).first()
+        imageInfo = session.query(DSAImage).filter(DSAImage.imageId == imageId).first()
         return imageInfo
 
     return None
@@ -59,12 +59,10 @@ async def add_DSAImage(imageId: str, dsaApiUrl: str):
 
         if not exist:
             gc = girder_client.GirderClient(apiUrl=dsaApiUrl)
-
             try:
                 resp = requests.get(dsaApiUrl, timeout=1)
                 itemInfo = gc.get(f"item/{imageId}")
                 tileData = gc.get(f"item/{imageId}/tiles")
-
                 imageItem = DSAImage(
                     imageName=itemInfo["name"],
                     apiURL=dsaApiUrl,
@@ -84,182 +82,11 @@ async def add_DSAImage(imageId: str, dsaApiUrl: str):
                 session.refresh(imageItem)
                 return imageItem
 
-            except:
-                print("Having an issue with one of the DSA servers")
+            except Exception as e:
+                print(f"Error while saving DSA Image: {e}")
         else:
             return exist
 
-
-#  TILE END POINTS
-
-@app.post("/addTileFeatures")
-async def post_tileFeatures(featureBatch: List[tileFeatures]):
-    tileData = [tile_obj.dict() for tile_obj in featureBatch]
-    with Session(engine) as session:
-        session.bulk_insert_mappings(tileFeatures, tileData)
-        session.commit()
-    return "Tile Feature Data added"
-
-## TO DO: Add optinoal parameter that will return all fields, not just the ones listed below
-@app.get("/getTileFeatures")
-async def get_tileFeatures(ftxtract_id: int):
-
-    with Session(engine) as session:
-        tileData = (
-            session.query(tileFeatures)
-            .filter(tileFeatures.ftxtract_id == ftxtract_id)
-            .options(
-                load_only(
-                    tileFeatures.imageId,
-                    tileFeatures.topX,
-                    tileFeatures.topY,
-                    tileFeatures.width,
-                    tileFeatures.height,
-                    tileFeatures.average,
-                    tileFeatures.localTileId,
-                )
-            )
-            .limit(10000)
-            .all()
-        )
-        return tileData
-
-    return None
-
-@app.delete("/deleteTileFeatures")
-async def delete_tileFeatures(imageId: str, ftxtract_id: int):
-    """This will delete tiles associated with an image in case I want to regenerate them"""
-    with Session(engine) as session:
-        statement = (
-            delete(tileFeatures).where(tileFeatures.imageId == imageId).where(tileFeatures.ftxtract_id == ftxtract_id)
-        )
-        result = session.exec(statement)
-        session.commit()
-        return "Tile Feature Data Truncated  "  # % result.rowCount
-
-# FEATURES
-
-@app.get("/getNPfeatures")
-async def get_NPfeatures(imageFeatureSet_id: int):
-
-    with Session(engine) as session:
-        NPfeatureData = (
-            session.query(NPfeatureSet)
-            .filter(NPfeatureSet.imageFeatureSet_id == imageFeatureSet_id)
-            # .filter(tileFeatures.imageId == imageId)
-            # .options(
-            #     load_only(
-            #         tileFeatures.imageId,
-            #         tileFeatures.topX,
-            #         tileFeatures.topY,
-            #         tileFeatures.width,
-            #         tileFeatures.height,
-            #         tileFeatures.average,
-            #         tileFeatures.localTileId,
-            #     )
-            # )
-            .limit(10000)
-            .all()
-        )
-        return NPfeatureData
-
-    return None
-
-@app.get("/getFeatureSets")
-async def get_featureSets(imageId: str):  # , featureType: str, imageFeatureSet_id: int):
-    with Session(engine) as session:
-        featureSets = session.query(imageFeatureSets).filter(imageFeatureSets.imageId == imageId).all()
-
-        return featureSets
-    return None
-
-
-@app.get("/computeFeatureDistance")
-async def get_computeFeatureDistance(ftxtract_id: int, distanceThresh: float, refFeatureId: str):
-    ### Given a ftxtract_id and a reference vector, and a distance
-    ### Compute which tiles (or features) are within the defined metric
-    with Session(engine) as session:
-        featureSelectedData = (
-            session.query(tileFeatures)
-            .filter(tileFeatures.ftxtract_id == ftxtract_id)
-            .options(load_only(tileFeatures.imageId, tileFeatures.localTileId, tileFeatures.average))
-            .all()
-        )
-
-        refFeatureVector = (
-            session.query(tileFeatures)
-            .filter(tileFeatures.ftxtract_id == ftxtract_id)
-            .filter(tileFeatures.localTileId == refFeatureId)
-            .options(load_only(tileFeatures.average))
-            .first()
-        )
-        ftrDistances = computeColorSimilarityForFeatureSet(
-            featureSelectedData, refFeatureVector.average, distanceThresh
-        )
-        return ftrDistances
-    return None
-
-
-@app.post("/addFeatureExtractionParams")
-async def insert_featureExtractionParams(featXtractParams: featureExtractionParams):
-    print("Adding parameters used to do a certain tile feature extraction")
-    with Session(engine) as session:
-        exist = (
-            session.query(featureExtractionParams)
-            .filter(featureExtractionParams.imageId == featXtractParams.imageId)
-            .filter(featureExtractionParams.tileWidth == featXtractParams.tileWidth)
-            .filter(featureExtractionParams.magnification == featXtractParams.magnification)
-            .first()
-        )
-        if exist:
-            return exist
-        else:
-            ftr = session.add(featXtractParams)
-            session.commit()
-            session.refresh(featXtractParams)
-            return featXtractParams  ## This should return a fresh copy of the extracted feature..
-
-    return None
-
-
-@app.post("/lookupFeatureExtractionParams")
-async def lookup_featureExtractionParams(imageId: str, magnification: float, tileSizeParam: str):
-    print("This will determine if a set of feature extractions have already been run at this resolution")
-    with Session(engine) as session:
-        exist = (
-            session.query(featureExtractionParams)
-            .filter(featureExtractionParams.imageId == imageId)
-            .filter(featureExtractionParams.tileSizeParam == tileSizeParam)
-            .filter(featureExtractionParams.magnification == magnification)
-            .first()
-        )
-        if exist:
-            return exist
-        else:
-            return None
-    return None
-
-
-@app.post("/getFeatureSetId")
-async def get_featureSetId(imageId: str, magnification: float, tileSizeParam: str):
-    print("This will determine if a set of feature extractions have already been run at this resolution")
-    with Session(engine) as session:
-        exist = (
-            session.query(featureExtractionParams)
-            .filter(featureExtractionParams.imageId == imageId)
-            .filter(featureExtractionParams.tileSizeParam == tileSizeParam)
-            .filter(featureExtractionParams.magnification == magnification)
-            .first()
-        )
-        if exist:
-            return exist
-        else:
-            return None
-    return None
-
-
-
-    return None
 
 # RECTANGLES
 
@@ -298,11 +125,16 @@ async def gen_random_rects(slide_id: str):
 @app.get("/rectangles/")
 async def get_rectangles():
     with Session(engine) as session:
-        rectangle = session.query(SimpleRectangles).all()
-        rectSet = [r for r in rectangle]
-        print(len(rectSet))
-        print(rectSet[0])
-        return len(rectSet)
+        try:
+            rectangle = session.query(SimpleRectangles).all()
+            if rectangle:
+                rectSet = [r for r in rectangle]
+                print(len(rectSet))
+                print(rectSet[0])
+                return len(rectSet)
+            return []
+        except Exception as e:
+            print(f"Error getting rectangles: {e}")
 
 
 
