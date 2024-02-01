@@ -49,8 +49,8 @@ async def lookupImageById(imageId: str):
 
 def lookupImageByName(imageName: str):
     with Session(engine) as session:
-        imageInfo = session.query(DSAImage).filter(DSAImage.imageName == imageId).first()
-        return imageInfo
+        image_info = session.query(DSAImage).filter(DSAImage.imageName.startswith(imageName)).first()
+        return image_info
 
 @app.get("/lookupImageName")
 async def findImageByName(imageName: str):
@@ -78,7 +78,9 @@ async def add_DSAImage(imageId: str, dsaApiUrl: str):
             gc = girder_client.GirderClient(apiUrl=dsaApiUrl)
             try:
                 resp = requests.get(dsaApiUrl, timeout=1)
+                print(gc.get(f"item/{imageId}"))
                 itemInfo = gc.get(f"item/{imageId}")
+                print(itemInfo)
                 tileData = gc.get(f"item/{imageId}/tiles")
                 imageItem = DSAImage(
                     imageName=itemInfo["name"],
@@ -109,22 +111,38 @@ async def add_DSAImage(imageId: str, dsaApiUrl: str):
 async def upload_feature_csv(file: UploadFile = File(...)):
     try:
         image_name, _ = file.filename.rsplit('_', 1)
-        image_id = lookupImageByName(image_name)
-        print(image_id)
+        image_info = lookupImageByName(image_name)
+        imageID = image_info.imageId
+
         cell_features = []
-        keys = ['localFeatureId', 'Cell_Centroid_X', 'Cell_Centroid_Y', 'Cell_Area', 'Percent_Epithelium', 'Percent_Stroma', 'Nuc_Area', 'Mem_Area', 'Cyt_Area']
         csv_reader = csv.reader(codecs.iterdecode(file.file,'utf-8'))
         _headers = next(csv_reader, None)
         for row in csv_reader:
             cell_features.append(row[2:11])
-        print(cell_features[0])
-        cell_features = [CellFeatures(dict(zip(keys, data))) for data in cell_features]
 
+        transformed_cell_feature_id = []
         with Session(engine) as session:
-            session.bulk_add(cell_features)
+            for row in cell_features:
+                rid, row_ = row[0], row[1:]
+                row_ = [float(val) for val in row_]
+                transformed_data = CellFeatures(
+                    localFeatureId = rid,
+                    Cell_Centroid_X = row_[0],
+                    Cell_Centroid_Y = row_[1],
+                    Cell_Area = row_[2],
+                    Percent_Epithelium = row_[3],
+                    Percent_Stroma = row_[4],
+                    Nuc_Area = row_[5],
+                    Mem_Area = row_[6],
+                    Cyt_Area = row_[7],
+                    imageID = imageID
+                )
+                transformed_cell_feature_id.append(rid)
+                session.add(transformed_data)
             session.commit()
-            return cell_features
-        return
+            total_records = len(transformed_cell_feature_id)
+            return {f"Added {total_records} record to the DB"}
+        return {"Msg": "Error Saving"}
     except Exception as e:
         print(f"Failed uploading CSV with error {e}")
     

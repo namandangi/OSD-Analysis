@@ -29,7 +29,8 @@ from sqlalchemy.dialects import (
 
 class CellFeatures(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)    
-    localFeatureId: int
+    # localFeatureId: int
+    localFeatureId: str
     Cell_Centroid_X: float
     Cell_Centroid_Y: float
     Cell_Area: float
@@ -38,7 +39,7 @@ class CellFeatures(SQLModel, table=True):
     Nuc_Area: float
     Mem_Area: float
     Cyt_Area: float
-    imageID: Optional[int] = Field(default=None, foreign_key = "dsaimage.id")
+    imageID: Optional[str] = Field(default=None, foreign_key = "dsaimage.imageId")
     image: Optional[DSAImage] = Relationship(back_populates="features")
     # Stain_Marker_Embeddings: List[float] = Field(sa_column=Column(Vector(50)))
 
