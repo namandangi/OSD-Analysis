@@ -7,9 +7,8 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import relationship
 
 
-class DSAImage(SQLModel, table=True, extend_existing=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    cellFeatures: Optional[List["VandyCellFeatures"]] = Relationship(back_populates="dsaImage")
+class DSAImage(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)    
     apiURL: str
     imageId: str = Field(sa_column=Column("imageId", String, unique=True))
     imageName: str
@@ -21,23 +20,15 @@ class DSAImage(SQLModel, table=True, extend_existing=True):
     sizeY: int
     tileWidth: int
     tileHeight: int
-
+    features: Optional[List["CellFeatures"]] = Relationship(back_populates="image")
 
 from sqlalchemy.dialects import (
     postgresql,
 )  # ARRAY contains requires dialect specific type
 
-##ID,First ID,UniqueID,Cell_Centroid_X,Cell_Centroid_Y,Cell_Area,Percent_Epithelium,Percent_Stroma,Nuc_Area,Mem_Area,Cyt_Area
-# ,ACTININ,BCATENIN,CD11B,CD20,CD3D,CD4,CD45,CD45B,CD68,CD8,CGA,COLLAGEN,COX2,DAPI,ERBB2,FOXP3,GACTIN,HLAA,LYSOZYME,MUC2,NAKATPASE,OLFM4,PANCK,PCNA,PDL1,PEGFR,PSTAT3,SMA,SNA,SOX9,VIMENTIN
 
-"""I am setting the maximum embedding vector size to 50 for now
-The Stain_Marker_Embeddings are stored in the feature extraction parameters"""
-
-
-class VandyCellFeatures(SQLModel):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    imageID: Optional[int] = Field(default=None, foreign_key = "DSAImage.id")
-    dsaImage: Optional[DSAImage] = Relationship(back_populates="cellFeatures")
+class CellFeatures(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)    
     localFeatureId: int
     Cell_Centroid_X: float
     Cell_Centroid_Y: float
@@ -47,6 +38,8 @@ class VandyCellFeatures(SQLModel):
     Nuc_Area: float
     Mem_Area: float
     Cyt_Area: float
+    imageID: Optional[int] = Field(default=None, foreign_key = "dsaimage.id")
+    image: Optional[DSAImage] = Relationship(back_populates="features")
     # Stain_Marker_Embeddings: List[float] = Field(sa_column=Column(Vector(50)))
 
 

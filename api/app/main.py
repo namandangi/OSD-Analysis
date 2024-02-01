@@ -1,11 +1,13 @@
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from sqlmodel import Session, select
 from geoalchemy2.elements import WKTElement
 from geoalchemy2.functions import ST_Distance, ST_AsGeoJSON, ST_MakeEnvelope
 from sqlalchemy.orm import load_only
 from sqlalchemy import func, and_, delete
 import numpy as np
+import csv
+import codecs
 import random, requests
 import girder_client
 from typing import List
@@ -13,7 +15,7 @@ from .utils import computeColorSimilarityForFeatureSet
 
 
 from .services import engine, create_db_and_tables
-from .models import SimpleRectangles, DSAImage
+from .models import SimpleRectangles, DSAImage, CellFeatures
 from .utils import extend_dict, pretify_address
 
 app = FastAPI()
@@ -37,20 +39,35 @@ def read_root():
 
 # IMAGE ENDPOINTS
 
-@app.get("/lookupImage")
-async def lookupImage(imageId: str, dsaApiUrl: str):
+@app.get("/lookupImageId")
+async def lookupImageById(imageId: str):
     with Session(engine) as session:
         imageInfo = session.query(DSAImage).filter(DSAImage.imageId == imageId).first()
         return imageInfo
 
     return None
 
+def lookupImageByName(imageName: str):
+    with Session(engine) as session:
+        imageInfo = session.query(DSAImage).filter(DSAImage.imageName == imageId).first()
+        return imageInfo
+
+@app.get("/lookupImageName")
+async def findImageByName(imageName: str):
+    imageInfo = lookupImageByName(imageName)
+    return imageInfo
+
+
+
 @app.get("/getImageList/")
 async def get_imageList():
     with Session(engine) as session:
-        images = session.query(DSAImage).all()
-        print(len(images))
-        return images
+        try:
+            images = session.query(DSAImage).all()
+            print(len(images))
+            return images
+        except Exception as e:
+            print(f"Retriving images failed due to {e}")
 
 @app.post("/add-DSAImage/")
 async def add_DSAImage(imageId: str, dsaApiUrl: str):
@@ -86,6 +103,31 @@ async def add_DSAImage(imageId: str, dsaApiUrl: str):
                 print(f"Error while saving DSA Image: {e}")
         else:
             return exist
+
+
+@app.post("/upload-cell-features/")
+async def upload_feature_csv(file: UploadFile = File(...)):
+    try:
+        image_name, _ = file.filename.rsplit('_', 1)
+        image_id = lookupImageByName(image_name)
+        print(image_id)
+        cell_features = []
+        keys = ['localFeatureId', 'Cell_Centroid_X', 'Cell_Centroid_Y', 'Cell_Area', 'Percent_Epithelium', 'Percent_Stroma', 'Nuc_Area', 'Mem_Area', 'Cyt_Area']
+        csv_reader = csv.reader(codecs.iterdecode(file.file,'utf-8'))
+        _headers = next(csv_reader, None)
+        for row in csv_reader:
+            cell_features.append(row[2:11])
+        print(cell_features[0])
+        cell_features = [CellFeatures(dict(zip(keys, data))) for data in cell_features]
+
+        with Session(engine) as session:
+            session.bulk_add(cell_features)
+            session.commit()
+            return cell_features
+        return
+    except Exception as e:
+        print(f"Failed uploading CSV with error {e}")
+    
 
 
 # RECTANGLES
