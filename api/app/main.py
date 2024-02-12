@@ -57,14 +57,13 @@ async def get_points():
     with Session(engine) as session:
         try:
             points = session.query(SimplePoint).all()
-            print(points)
             print(type(points[0].__dict__['point']))
+            convert_tolist = lambda x : x.tolist(); 
             result = []
             for point in points:
                 point_obj = point.__dict__
                 del point_obj['_sa_instance_state']
-                nparray = point_obj['point'] # type is numpy.ndarray
-                point_obj['point'] = nparray.tolist()
+                point_obj['point'] = convert_tolist(point_obj['point']) # type is numpy.ndarray                
                 result.append(point_obj)
             return result
         except Exception as e:
@@ -90,6 +89,7 @@ async def get_similar_pts(x: float, y: float, dst: float, lmt: Optional[int] = 1
             return result
         except Exception as e:
             print(f"Retriving points failed due to {e}")
+
 # IMAGE ENDPOINTS
 
 @app.get("/lookupImageId")
@@ -112,7 +112,7 @@ async def findImageByName(imageName: str):
 
 
 
-@app.get("/getImageList/")
+@app.get("/get-image-list/")
 async def get_imageList():
     with Session(engine) as session:
         try:
@@ -163,9 +163,9 @@ async def add_DSAImage(imageId: str, dsaApiUrl: str):
 @app.post("/upload-cell-features/")
 async def upload_feature_csv(file: UploadFile = File(...)):
     try:
-        image_name, _ = file.filename.rsplit('_', 1)
-        image_info = lookupImageByName(image_name)
-        imageID = image_info.imageId
+        # image_name, _ = file.filename.rsplit('_', 1)
+        # image_info = lookupImageByName(image_name)
+        # imageID = image_info.imageId
 
         cell_features = []
         csv_reader = csv.reader(codecs.iterdecode(file.file,'utf-8'))
@@ -173,7 +173,7 @@ async def upload_feature_csv(file: UploadFile = File(...)):
         for row in csv_reader:
             cell_features.append(row[2:11])
 
-        cell_features = cell_features[0:2]
+        # cell_features = cell_features[0:2]
         transformed_cell_feature_id = []
         with Session(engine) as session:
             for row in cell_features:
@@ -181,7 +181,7 @@ async def upload_feature_csv(file: UploadFile = File(...)):
                 row_ = [float(val) for val in row_]
                 
                 pt_vector = [row_[0], row_[1]]
-                print(type(pt_vector))
+                print((pt_vector))
 
                 transformed_data = CellFeatures(
                     localFeatureId = rid,
@@ -194,7 +194,7 @@ async def upload_feature_csv(file: UploadFile = File(...)):
                     Nuc_Area = row_[5],
                     Mem_Area = row_[6],
                     Cyt_Area = row_[7],
-                    imageID = imageID
+                    # imageID = "1"
                 )
                 transformed_cell_feature_id.append(rid)
                 session.add(transformed_data)
@@ -206,6 +206,36 @@ async def upload_feature_csv(file: UploadFile = File(...)):
         print(f"Failed uploading CSV with error {e}")
     
 
+@app.get("/get-all-features")
+async def get_cell_features():
+    with Session(engine) as session:
+        try:
+            features = session.query(CellFeatures).all()
+            print(f"found {len(features)} records")
+            convert_tolist = lambda x : x.tolist(); 
+            for feature in features:
+                feature.Point_Vector = convert_tolist(feature.Point_Vector)
+            return features
+        except Exception as e:
+            print(f"Retriving images failed due to {e}")
+
+
+@app.get("/get-similar-feat")
+async def get_similar_features(x: float, y: float, dst: float, lmt: Optional[int] = 10):
+    with Session(engine) as session:
+        try:
+            pt = [x,y]
+            points = session.scalars(select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst).limit(lmt)) # returns within dist
+            convert_tolist = lambda x : x.tolist(); 
+            result = []
+            for pt in points:
+                if pt.Point_Vector is None: 
+                    continue
+                pt.Point_Vector = convert_tolist(pt.Point_Vector) # type is numpy.ndarray
+                result.append(pt)
+            return result
+        except Exception as e:
+            print(f"Retriving points failed due to {e}")
 
 # RECTANGLES
 
