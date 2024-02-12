@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import SQLModel, create_engine, Session
 from .models import *
 
 DATABASE_URL = "postgresql://docker:docker@gisdb:5435/osdgis"

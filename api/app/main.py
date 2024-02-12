@@ -8,14 +8,15 @@ from sqlalchemy import func, and_, delete
 import numpy as np
 import csv
 import codecs
+import json
 import random, requests
 import girder_client
-from typing import List
+from typing import List, Optional
 from .utils import computeColorSimilarityForFeatureSet
 
 
 from .services import engine, create_db_and_tables
-from .models import SimpleRectangles, DSAImage, CellFeatures
+from .models import SimpleRectangles, DSAImage, CellFeatures, SimplePoint
 from .utils import extend_dict, pretify_address
 
 app = FastAPI()
@@ -37,6 +38,58 @@ def on_startup():
 def read_root():
     return {"Msg": "Hello World"}
 
+@app.post("/add-point")
+async def store_points(x: float, y: float):
+    pt = [x,y]
+    # point = SimplePoint(point=np.array(pt, dtype=np.float32))
+    point = SimplePoint(point=pt) # pt gets stored in the table as nd numpy array of type float32
+    with Session(engine) as session:
+        try:
+            print(point)
+            session.add(point)
+            session.commit()
+        except Exception as e:
+            print(f"Adding points failed due to {e}")
+    return f"Added point {pt}"
+
+@app.get("/get-points")
+async def get_points():
+    with Session(engine) as session:
+        try:
+            points = session.query(SimplePoint).all()
+            print(points)
+            print(type(points[0].__dict__['point']))
+            result = []
+            for point in points:
+                point_obj = point.__dict__
+                del point_obj['_sa_instance_state']
+                nparray = point_obj['point'] # type is numpy.ndarray
+                point_obj['point'] = nparray.tolist()
+                result.append(point_obj)
+            return result
+        except Exception as e:
+            print(f"Retriving points failed due to {e}")
+
+@app.get("/get-similar-pts")
+async def get_similar_pts(x: float, y: float, dst: float, lmt: Optional[int] = 10):
+    with Session(engine) as session:
+        try:
+            pt = [x,y]
+            points = session.scalars(select(SimplePoint).filter(SimplePoint.point.l2_distance(pt) < dst).limit(lmt)) # returns within dist
+            # points = session.scalars(select(SimplePoint).order_by(SimplePoint.point.l2_distance(pt)).limit(5)) # limit no of neighbors
+            print(type(points))
+            result = []
+            for pt in points:
+                print(pt)
+                nparray = pt.point # type is numpy.ndarray
+                if nparray is None: 
+                    continue
+                print(nparray)
+                pt.point = nparray.tolist()
+                result.append(pt)
+            return result
+        except Exception as e:
+            print(f"Retriving points failed due to {e}")
 # IMAGE ENDPOINTS
 
 @app.get("/lookupImageId")
@@ -120,15 +173,21 @@ async def upload_feature_csv(file: UploadFile = File(...)):
         for row in csv_reader:
             cell_features.append(row[2:11])
 
+        cell_features = cell_features[0:2]
         transformed_cell_feature_id = []
         with Session(engine) as session:
             for row in cell_features:
                 rid, row_ = row[0], row[1:]
                 row_ = [float(val) for val in row_]
+                
+                pt_vector = [row_[0], row_[1]]
+                print(type(pt_vector))
+
                 transformed_data = CellFeatures(
                     localFeatureId = rid,
                     Cell_Centroid_X = row_[0],
                     Cell_Centroid_Y = row_[1],
+                    Point_Vector = [row_[0], row_[1]],
                     Cell_Area = row_[2],
                     Percent_Epithelium = row_[3],
                     Percent_Stroma = row_[4],
