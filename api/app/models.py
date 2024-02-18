@@ -42,7 +42,7 @@ class CellFeatures(SQLModel, table=True):
     Cyt_Area: float
     imageID: Optional[str] = Field(default=None, foreign_key = "dsaimage.imageId")
     image: Optional[DSAImage] = Relationship(back_populates="features")
-    # Stain_Marker_Embeddings: List[float] = Field(sa_column=Column(Vector(50)))
+    Stain_Marker_Embeddings: List[float] = Field(sa_column=Column(Vector()))
 
     class Config:
         arbitrary_types_allowed = True
