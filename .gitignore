@@ -128,3 +128,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+*.pyenv*
+*.npCache*
+*__pycache__*
+*.pyc
+api/app/__pycache__/main.cpython-39.pyc
+api/app/__pycache__/main.cpython-39.pyc
+api/app/__pycache__/models.cpython-39.pyc

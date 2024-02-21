@@ -21,17 +21,17 @@ services:
     healthcheck:
       test: "exit 0"
     command: -p 5435
-  viewer:
-    build: viewer/
-    expose:
-      - "3001"
-      - "35730" # For livereload
-    container_name: viewer
-    ports:
-      - "3001:3001"
-      - "35730:35730"
-    volumes:
-      - ${PWD}/viewer:/app
+  # viewer:
+  #   build: viewer/
+  #   expose:
+  #     - "3001"
+  #     - "35730" # For livereload
+  #   container_name: viewer
+  #   ports:
+  #     - "3001:3001"
+  #     - "35730:35730"
+  #   volumes:
+  #     - ${PWD}/viewer:/app
   api:
     container_name: osd-analysis-api
     build: api/
@@ -44,7 +44,73 @@ services:
       - gisdb
     volumes:
       - ${PWD}/api/app:/code/app
-
+  ############################################
+  ## Redis is used as a broker for celery  ##
+  ############################################
+  redis:
+    container_name: osd-analysis-redis
+    image: redis:alpine
+    restart: always
+    ports:
+      - "6379:6379"
+  ##############################################
+  ##  Create a CELERY worker with autoreload  ##
+  ##  In future start can add addl workers    ##
+  ##############################################
+  celery_worker:
+    platform: linux/amd64
+    build: dashApp/ ### Should use the same container as fastapi and dash to make requirements easier
+    depends_on:
+      - redis
+      - rabbitmq
+    environment:
+      - REDIS_PASS=devpassword
+      - PYTHONBUFFERED=1
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    user: nobody
+    command: watchmedo auto-restart --directory=/code/app --pattern=*.py --recursive --  celery -A dashApp.celery_app  --workdir=/code/app worker --loglevel=INFO
+    volumes:
+      - ${PWD}/dashApp:/code/app
+  rabbitmq:
+    container_name: osd-analysis-rabbitmq
+    image: rabbitmq:3.11.2-management-alpine
+    restart: always
+    ports:
+      - 15672:15672
+      - 5672:5672
+    # depends_on:
+    #   - redis
+  dash:
+    container_name: osd-analysis-dash
+    build: dashApp/
+    volumes:
+      - ./dashApp:/app
+    # env_file:
+    #   - .env
+    ports:
+      - 8050:8050
+    depends_on:
+      - gisdb
+      - api
+    command:
+      [
+        "./wait-for-it.sh",
+        "api:8000",
+        "--",
+        "python",
+        "dashapp.py"
+      ]
+  flower:
+    image: mher/flower:1.2
+    environment:
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+    restart: always
+    ports:
+      - 5555:5555
+    depends_on:
+      - celery_worker
+      - rabbitmq
   # pgadmin4:
   #   image: dpage/pgadmin4
   #   container_name: pgadmin4
