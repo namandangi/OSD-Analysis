@@ -1,3 +1,6 @@
+#CSV
+*.csv
+
 # Logs
 logs
 *.log

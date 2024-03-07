@@ -11,6 +11,7 @@ sampleTileSrc = {
     "tileSources": [
         {
             "tileSource": "https://candygram.neurology.emory.edu/api/v1/item/65240a2ec1ae16db59f790bb/tiles/dzi.dzi",
+            # "tileSource": "https://api.digitalslidearchive.org/api/v1/item/5b9f02d7e62914002e94e684/tiles/dzi.dzi",
             "x": 0,
             "y": 0,
             "opacity": 1,
@@ -71,7 +72,7 @@ mxifViewer_layout = html.Div(
     Input("redraw-overlay", "n_clicks"),
 )
 def renderCellsonOSDViewer(clusterData, redrawClicked):
-    print(clusterData[0])
+    print(f"cluster data: {clusterData[0]}")
 
     shapesToAdd = []
     for s in clusterData[:1000]:  ### Just do the first 500 rows for now
@@ -83,7 +84,7 @@ def renderCellsonOSDViewer(clusterData, redrawClicked):
             {"class": "cell"},
         )
         shapesToAdd.append(si)
-
+    print(f"shapes:  {shapesToAdd[0]}")
     return {
         "actions": [
             {"type": "clearItems"},

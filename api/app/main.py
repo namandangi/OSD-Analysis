@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from geoalchemy2.elements import WKTElement
 from geoalchemy2.functions import ST_Distance, ST_AsGeoJSON, ST_MakeEnvelope
 from sqlalchemy.orm import load_only
-from sqlalchemy import func, and_, delete
+from sqlalchemy import func, and_, delete, desc
 import numpy as np
 import csv
 import codecs
@@ -224,11 +224,32 @@ async def get_cell_features(lmt: Optional[int] = 5):
 
 
 @app.get("/get-similar-feat")
-async def get_similar_features(x: float, y: float, dst: float, lmt: Optional[int] = 10):
+async def get_similar_features(x: float, y: float, dst: float, order_list: Optional[str], lmt: Optional[int] = 10):
     with Session(engine) as session:
         try:
             pt = [x,y]
-            points = session.scalars(select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst).limit(lmt)) # returns within dist
+            order_list = order_list.split(",")
+            # query = select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst).order_by(CellFeatures.Nuc_Area)
+            query = select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst)
+            for order_clause in order_list:
+                if order_clause == "Cell_Area":
+                    query.order_by(CellFeatures.Cell_Area)
+                elif order_clause == "Nuc_Area":
+                    query.order_by(CellFeatures.Nuc_Area)
+                elif order_clause == "Cyt_Area":
+                    query.order_by(CellFeatures.Cyt_Area)
+                elif order_clause == "Mem_Area":
+                    query.order_by(CellFeatures.Mem_Area)
+                elif order_clause == "Percent_Stroma":
+                    query.order_by(CellFeatures.Percent_Stroma)
+                elif order_clause == "Percent_Epithelium":
+                    query.order_by(CellFeatures.Percent_Epithelium)
+
+            points = session.scalars(query.limit(lmt)) # returns within dist                       
+            
+            # points = session.scalars(select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst).limit(lmt)) # returns within dist
+            # points = session.scalars(select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst).order_by(CellFeatures.Cell_Area).limit(lmt)) # returns within dist
+            
             convert_tolist = lambda x : x.tolist(); 
             result = []
             for pt in points:

@@ -13,7 +13,8 @@ import dash_ag_grid
 from settings import memory
 import plotly.graph_objects as go
 
-sampleCSVFile = "data/PosStats_MAP01938_0000_0E_01_region_001_labelled.csv"
+# sampleCSVFile = "data/PosStats_MAP01938_0000_0E_01_region_001_labelled.csv"
+sampleCSVFile = "data/PosStats_MAP01938_0000_0E_01_region_001.csv"
 
 
 global_df = None
@@ -84,7 +85,7 @@ def computeClusterSets(data, setSize=2000, n_clusters=9):
 
     # Convert cluster_data back to a DataFrame and add the cluster labels
     cluster_data = pd.DataFrame(cluster_data, columns=filtered_columns, index=df.index)
-    cluster_data["Cluster labels"] = labels
+    cluster_data["cluster_labels"] = labels
 
     # Concatenate the other columns back to the DataFrame
     # df = pd.concat([cluster_data, other_columns], axis=1)
@@ -148,7 +149,6 @@ def loadFeatureData(_):
         "cluster_labels",
         # "Cluster labels",
     ]
-    # return clusterSet[dataStoreCols].to_dict("records")
     return df[dataStoreCols].to_dict("records")
 
 
@@ -238,9 +238,9 @@ def generateClassDistroGraph(clusterData):
     # background=True,
 )
 def IntensityHistogram(clusterData, featureName):
-    # df = pd.DataFrame(clusterData)
-    # all_columns = df.columns
-    # filtered_columns = [col for col in all_columns if col.startswith("intensity")]
+    df = pd.DataFrame(clusterData)
+    all_columns = df.columns
+    filtered_columns = [col for col in all_columns if col.startswith("intensity")]
 
     # my_df = load_dataset(sampleCSVFile)
 

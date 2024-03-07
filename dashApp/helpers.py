@@ -58,5 +58,6 @@ def generate_generic_DataTable(df, id_val, col_defs={}, exportable=False):
 def load_dataset(csvFileName, options=None):
     ## Options would relate to column reformatting, type casting or whatever you feel like doing
     df = pd.read_csv(csvFileName)
+    df['cluster_labels'] = None
     ## Do stuff here?
     return df

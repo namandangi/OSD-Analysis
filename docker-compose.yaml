@@ -21,17 +21,17 @@ services:
     healthcheck:
       test: "exit 0"
     command: -p 5435
-  # viewer:
-  #   build: viewer/
-  #   expose:
-  #     - "3001"
-  #     - "35730" # For livereload
-  #   container_name: viewer
-  #   ports:
-  #     - "3001:3001"
-  #     - "35730:35730"
-  #   volumes:
-  #     - ${PWD}/viewer:/app
+  viewer:
+    build: viewer/
+    expose:
+      - "3001"
+      - "35730" # For livereload
+    container_name: viewer
+    ports:
+      - "3001:3001"
+      - "35730:35730"
+    volumes:
+      - ${PWD}/viewer:/app
   api:
     container_name: osd-analysis-api
     build: api/
@@ -53,6 +53,26 @@ services:
     restart: always
     ports:
       - "6379:6379"
+  dash:
+    container_name: osd-analysis-dash
+    build: dashApp/
+    volumes:
+      - ./dashApp:/app
+    # env_file:
+    #   - .env
+    ports:
+      - 8050:8050
+    depends_on:
+      - gisdb
+      - api
+    command:
+      [
+        "./wait-for-it.sh",
+        "api:8000",
+        "--",
+        "python",
+        "dashApp.py"
+      ]
   ##############################################
   ##  Create a CELERY worker with autoreload  ##
   ##  In future start can add addl workers    ##
@@ -81,26 +101,7 @@ services:
       - 5672:5672
     # depends_on:
     #   - redis
-  dash:
-    container_name: osd-analysis-dash
-    build: dashApp/
-    volumes:
-      - ./dashApp:/app
-    # env_file:
-    #   - .env
-    ports:
-      - 8050:8050
-    depends_on:
-      - gisdb
-      - api
-    command:
-      [
-        "./wait-for-it.sh",
-        "api:8000",
-        "--",
-        "python",
-        "dashapp.py"
-      ]
+
   flower:
     image: mher/flower:1.2
     environment:
