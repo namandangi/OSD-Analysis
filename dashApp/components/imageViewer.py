@@ -1,9 +1,20 @@
-from dash import html, Input, Output, State, dcc, callback, no_update
+from dash import html, Input, Output, State, dcc, callback, no_update, callback_context
 import dash_paperdragon
 from settings import gc, osdConfig
 import dash_bootstrap_components as dbc
 from settings import osdConfig, getId
 import dash_bootstrap_components as dbc
+
+import random
+import json
+
+
+def get_random_color():
+    r = random.randint(0, 255)
+    g = random.randint(0, 255)
+    b = random.randint(0, 255)
+    return f"rgb({r}, {g}, {b})"
+
 
 sampleTileSrc = {
     "label": "CDG Example",
@@ -11,12 +22,10 @@ sampleTileSrc = {
     "tileSources": [
         {
             "tileSource": "https://candygram.neurology.emory.edu/api/v1/item/65240a2ec1ae16db59f790bb/tiles/dzi.dzi",
-            # "tileSource": "https://api.digitalslidearchive.org/api/v1/item/5b9f02d7e62914002e94e684/tiles/dzi.dzi",
             "x": 0,
             "y": 0,
             "opacity": 1,
             "layerIdx": 0,
-            # "width": 4000,
         }
     ],
 }
@@ -32,6 +41,20 @@ mxif_osdViewer = dash_paperdragon.DashPaperdragon(
     inputToPaper=None,
     outputFromPaper=None,
     viewerWidth=1000,
+)
+
+
+simpleSelector = dbc.Col(
+    [
+        dbc.Select(
+            id="sample_select",
+            options=["MedStats", "PosStats"],
+            style={"maxWidth": 300},
+            value="PosStats",
+            className="me-1",
+        )
+    ],
+    width=1,
 )
 
 
@@ -51,15 +74,34 @@ mouseDisplay = dbc.Col(
     width=2,
 )
 
+
+# @callback(
+#     Output("debugOutputDiv", "children"),
+#     Output("rawFeatureData_store", "data"),
+#     Input("sample_select", "value"),
+# )
+# def updateDebugOutputDiv(value):
+#     print("CLUSTER THE FARK OUT OF IT!!!")
+#     return f"Selected {value}", no_update
+
+
 genImageCluster = dbc.Col(
-    [dbc.Button("Generate Image Cluster", id="genImageCluster", color="primary")],
+    [
+        dbc.Button("Generate Image Cluster", id="genImageCluster", color="primary"),
+        html.Div(id="debugOutputDiv"),
+    ],
     width=2,
 )
 
 
+curObjDisp = dbc.Col([html.Div(id="curObject_disp", className="card-text")], width=4)
+
 mxifViewer_layout = html.Div(
     [
-        dbc.Row([mouseDisplay], style={"height": "100px"}),
+        dbc.Row(
+            [mouseDisplay, curObjDisp, genImageCluster, simpleSelector],
+            style={"height": "100px"},
+        ),
         dbc.Row(mxif_osdViewer),
         dbc.Button(id="redraw-overlay", color="primary"),
     ]
@@ -67,21 +109,52 @@ mxifViewer_layout = html.Div(
 
 
 @callback(
+    Output("curObject_disp", "children"), Input("osdMxif_viewer", "curShapeObject")
+)
+def update_curShapeObject(curShapeObject):
+
+    print(curShapeObject, "is current shape detected..")
+    if curShapeObject:
+        return json.dumps(curShapeObject.get("userdata", {}))
+    else:
+        return no_update
+
+
+# @callback(Output("debugOutputDiv", "children"),)
+# def eventuallyGenerateImageCluster(n_clicks):
+#     print("Generating Image Cluster")
+#     return f"Clicked {n_clicks} times"
+
+colorPalette = ["red", "green", "blue", "orange", "yellow"]
+
+
+@callback(
     Output("osdMxif_viewer", "inputToPaper"),
     Input("rawFeatureData_store", "data"),
     Input("redraw-overlay", "n_clicks"),
+    Input("genImageCluster", "n_clicks"),
 )
-def renderCellsonOSDViewer(clusterData, redrawClicked):
+def renderCellsonOSDViewer(clusterData, redrawClicked, genImageClusterClicked):
     print(f"cluster data: {clusterData[0]}")
 
+    ctx = callback_context.triggered_id
+
     shapesToAdd = []
-    for s in clusterData[:1000]:  ### Just do the first 500 rows for now
+    for idx, s in enumerate(
+        clusterData[:10000]
+    ):  ### Just do the first 500 rows for now
+
+        color = get_random_color()
+        if "genImageCluster" in ctx and genImageClusterClicked is not None:
+            # print("You were clickity clackity", genImageClusterClicked)
+            color = colorPalette[idx % len(colorPalette)]
+
         si = get_circle_instructions(
             int(s["Cell_Centroid_X"]),
             int(s["Cell_Centroid_Y"]),
             4,
-            "red",
-            {"class": "cell"},
+            color,  ## TO MAKE BASED ON CLASS..
+            {"class": "cell", "allDaStuff": s},
         )
         shapesToAdd.append(si)
     print(f"shapes:  {shapesToAdd[0]}")
@@ -136,9 +209,10 @@ def get_box_instructions(x, y, w, h, color, userdata={}):
 def get_circle_instructions(x, y, r, color, userdata={}):
     props = osdConfig.get("defaultStyle") | {
         "center": [x, y],
-        "radius": 1,
+        "radius": r,
         "fillColor": color,
         "strokeColor": color,
+        "fillOpacity": 0.01,
     }
     userdata["objectId"] = getId()
     command = {"paperType": "Path.Circle", "args": [props], "userdata": userdata}
@@ -438,7 +512,7 @@ def get_circle_instructions(x, y, r, color, userdata={}):
 #         data_df["x_centroid"] = data_df["Cell_Centroid_X"].astype(int)
 #         data_df["y_centroid"] = data_df["Cell_Centroid_Y"].astype(int)
 #         print(data_df.head())
-#         filtered_data = data_df[
+#         filtefet__data = data_df[
 #             (
 #                 (data_df["x_centroid"] >= startX)
 #                 & (data_df["x_centroid"] <= (startX + int(viewportSize)))

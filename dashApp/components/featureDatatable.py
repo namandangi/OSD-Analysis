@@ -231,25 +231,25 @@ def generateClassDistroGraph(clusterData):
     return dcc.Graph(figure=fig)
 
 
-@callback(
-    Output("right-col-graph", "children"),
-    Input("rawFeatureData_store", "data"),
-    Input("featureList_selector", "value"),
-    # background=True,
-)
-def IntensityHistogram(clusterData, featureName):
-    df = pd.DataFrame(clusterData)
-    all_columns = df.columns
-    filtered_columns = [col for col in all_columns if col.startswith("intensity")]
+# @callback(
+#     Output("right-col-graph", "children"),
+#     Input("rawFeatureData_store", "data"),
+#     Input("featureList_selector", "value"),
+#     # background=True,
+# )
+# def IntensityHistogram(clusterData, featureName):
+#     df = pd.DataFrame(clusterData)
+#     all_columns = df.columns
+#     filtered_columns = [col for col in all_columns if col.startswith("intensity")]
 
-    # my_df = load_dataset(sampleCSVFile)
+#     # my_df = load_dataset(sampleCSVFile)
 
-    fig = px.histogram(
-        df,
-        x=featureName,
-        nbins=50,
-        title=f"Histogram of Intensity {featureName}",  # .replace('intensity','')}",
-    )
-    fig.update_xaxes(title_text="Intensities")
-    fig.update_yaxes(title_text="Frequency")
-    return dcc.Graph(figure=fig)
+#     fig = px.histogram(
+#         df,
+#         x=featureName,
+#         nbins=50,
+#         title=f"Histogram of Intensity {featureName}",  # .replace('intensity','')}",
+#     )
+#     fig.update_xaxes(title_text="Intensities")
+#     fig.update_yaxes(title_text="Frequency")
+#     return dcc.Graph(figure=fig)

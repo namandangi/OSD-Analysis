@@ -5,6 +5,7 @@ import dash_bootstrap_components as dbc
 
 from components.featureDatatable import featureDataTable_layout
 from components.imageViewer import mxifViewer_layout
+
 from celery import Celery
 from dash.long_callback import CeleryLongCallbackManager
 
