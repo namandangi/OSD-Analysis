@@ -177,6 +177,25 @@ def update_mouseCoords(curMousePosition):
         else ""
     )
 
+# @callback(
+#     # Output("osdMxif_viewer", "inputToPaper"), 
+#     Output("currPoint_disp", "children"),
+#     Input("osdMxif_viewer", "curMousePosition"),
+#     Input("rawFeatureData_store", "data"),
+# )
+# def update_curCursor(curMousePosition, clusterData):
+
+#     return (
+#         f'{int(curMousePosition["x"])},{int(curMousePosition["y"])}'
+#         if curMousePosition["x"] is not None
+#         else ""
+#     )
+#     # return {
+#     #     "actions": [
+#     #         {"type": "clearItems"},
+#     #         {"type": "drawItems", "itemList": shapesToAdd},
+#     #     ]
+#     # }
 
 # {'label': 1, ']': 1726, 'centroid-0': 214.33545770567787, 'centroid-1': 3238.139049826188, 'intensity_mean_ACTININ': 1377.1819184123483, 'intensity_mean_BCATENIN': 5453.981256890849, 'intensity_mean_CD11B': 70.35170893054024, 'intensity_mean_CD20': 222.2844542447629, 'intensity_mean_CD3D': 2814.541345093716, 'intensity_mean_CD45B': 0, 'intensity_mean_CD45': 122.56339581036384, 'intensity_mean_CD4': 794.1565600882029, 'intensity_mean_CD68': 1089.0738699007718, 'intensity_mean_CD8': 476.13340683572216, 'intensity_mean_CGA': 110.7805953693495, 'intensity_mean_COLLAGEN': 424.9173098125689, 'intensity_mean_COX2': 693.9834619625137, 'intensity_mean_DAPI': 2043.550165380375, 'intensity_mean_ERBB2': 1225.8202866593165, 'intensity_mean_FOXP3': 0, 'intensity_mean_GACTIN': 2672.4189636163173, 'intensity_mean_HLAA': 4471.524807056229, 'intensity_mean_LYSOZYME': 123.78610804851158, 'intensity_mean_MUC2': 1057.851157662624, 'intensity_mean_NAKATPASE': 2098.327453142227, 'intensity_mean_OLFM4': 145.1047409040794, 'intensity_mean_PANCK': 8892.259095920617, 'intensity_mean_PCNA': 272.10363836824695, 'intensity_mean_PDL1': 1.0871003307607496, 'intensity_mean_PEGFR': 1813.5038588754132, 'intensity_mean_PSTAT3': 670.1907386990077, 'intensity_mean_SMA': 37.18853362734289, 'intensity_mean_SNA': 3938.1642778390296, 'intensity_mean_SOX9': 179.20948180815876, 'intensity_mean_VIMENTIN': 0.0209481808158765, 'epithelial': 1, 'slide': 'MAP01938_0000_0E_01', 'region': 1}
 
@@ -193,6 +212,7 @@ def update_mouseCoords(curMousePosition):
 #             {"class": classes[0]},
 #         )
 #         currentShapeData.append(si)
+
 def get_box_instructions(x, y, w, h, color, userdata={}):
     props = osdConfig.get("defaultStyle") | {
         "point": {"x": x, "y": y},
