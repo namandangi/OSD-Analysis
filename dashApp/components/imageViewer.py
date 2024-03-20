@@ -103,7 +103,8 @@ mxifViewer_layout = html.Div(
             style={"height": "100px"},
         ),
         dbc.Row(mxif_osdViewer),
-        dbc.Button(id="redraw-overlay", color="primary"),
+        dbc.Row(dbc.Button("Plot Points", id="redraw-overlay", color="primary"), style={"left-margin": "1em"})
+        
     ]
 )
 
@@ -141,7 +142,7 @@ def renderCellsonOSDViewer(clusterData, redrawClicked, genImageClusterClicked):
 
     shapesToAdd = []
     for idx, s in enumerate(
-        clusterData[:10000]
+        clusterData[:5]
     ):  ### Just do the first 500 rows for now
 
         color = get_random_color()

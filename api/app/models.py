@@ -20,7 +20,6 @@ class DSAImage(SQLModel, table=True):
     sizeY: int
     tileWidth: int
     tileHeight: int
-    features: Optional[List["CellFeatures"]] = Relationship(back_populates="image")
 
 from sqlalchemy.dialects import (
     postgresql,
@@ -29,7 +28,6 @@ from sqlalchemy.dialects import (
 
 class CellFeatures(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)    
-    # localFeatureId: int
     localFeatureId: str
     Cell_Centroid_X: float
     Cell_Centroid_Y: float
@@ -39,26 +37,9 @@ class CellFeatures(SQLModel, table=True):
     Percent_Stroma: float
     Nuc_Area: float
     Mem_Area: float
-    Cyt_Area: float
-    imageID: Optional[str] = Field(default=None, foreign_key = "dsaimage.imageId")
-    image: Optional[DSAImage] = Relationship(back_populates="features")
+    Cyt_Area: float    
     Stain_Marker_Embeddings: List[float] = Field(sa_column=Column(Vector()))
+    imageID: str = Field(default=None, foreign_key = "dsaimage.imageId")
 
     class Config:
         arbitrary_types_allowed = True
-
-
-class SimpleRectangles(SQLModel, table=True):
-    rectangle_id: int = Field(primary_key=True)
-    slide_id: str
-    x1: int
-    x2: int
-    y1: int
-    y2: int
-    shapeName: str
-    shapeLabel: str
-    shapeLocation: Optional[Any] = Field(sa_column=Column(Geometry("GEOMETRY")))
-
-class SimplePoint(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True) 
-    point: List[float] = Field(sa_column=Column(Vector(2)))
