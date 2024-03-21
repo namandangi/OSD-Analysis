@@ -118,8 +118,10 @@ async def get_cell_features(lmt: Optional[int] = 5):
             print(f"found {len(features)} records")
             convert_tolist = lambda x : x.tolist(); 
             for feature in features:
-                feature.Point_Vector = convert_tolist(feature.Point_Vector)
-                feature.Stain_Marker_Embeddings = convert_tolist(feature.Stain_Marker_Embeddings)
+                if feature.Point_Vector: 
+                    feature.Point_Vector = convert_tolist(feature.Point_Vector)
+                if feature.Stain_Marker_Embeddings:
+                    feature.Stain_Marker_Embeddings = convert_tolist(feature.Stain_Marker_Embeddings)
             return features
         except Exception as e:
             print(f"Retriving images failed due to {e}")
@@ -141,13 +143,15 @@ async def get_cell_feature_by_id(UniqueID: str):
             print(f"Retriving images failed due to {e}")
 
 @app.get("/get-similar-feat")
-async def get_similar_features(x: float, y: float, dst: float, order_list: Optional[str], lmt: Optional[int] = 10):
+async def get_similar_features(x: float, y: float, dst: float, imageID: str, order_list: Optional[str], lmt: Optional[int] = 10):
     with Session(engine) as session:
         try:
             pt = [x,y]
             order_list = order_list.split(",")
             # query = select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst).order_by(CellFeatures.Nuc_Area)
-            query = select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst)
+            # query = select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst)
+            # query = select(CellFeatures).filter(CellFeatures.imageID == imageID).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst)
+            query = select(CellFeatures).filter(CellFeatures.imageID == imageID).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst)
             for order_clause in order_list:
                 if order_clause == "Cell_Area":
                     query.order_by(CellFeatures.Cell_Area)
@@ -169,12 +173,12 @@ async def get_similar_features(x: float, y: float, dst: float, order_list: Optio
             
             convert_tolist = lambda x : x.tolist(); 
             result = []
-            for pt in points:
-                if pt.Point_Vector is None: 
+            for ptx in points:
+                if ptx.Point_Vector is None: 
                     continue
-                pt.Point_Vector = convert_tolist(pt.Point_Vector) # type is numpy.ndarray
-                pt.Stain_Marker_Embeddings = convert_tolist(pt.Stain_Marker_Embeddings) # type is numpy.ndarray
-                result.append(pt)
+                ptx.Point_Vector = convert_tolist(ptx.Point_Vector) # type is numpy.ndarray
+                ptx.Stain_Marker_Embeddings = convert_tolist(ptx.Stain_Marker_Embeddings) # type is numpy.ndarray
+                result.append(ptx)
             return result
         except Exception as e:
             print(f"Retriving points failed due to {e}")
@@ -188,7 +192,7 @@ async def upload_feature_csv(imageID: str, file: UploadFile = File(...)):
 
         feature_id = df.iloc[:, 2].values
         cell_features = df.iloc[:, 3:11].values.astype(float)
-        cell_embeddings = df.iloc[:, 11:].values
+        cell_embeddings = df.iloc[:, 11:].values.astype(float)
 
         transformed_cell_feature_id = []
 
@@ -208,10 +212,9 @@ async def upload_feature_csv(imageID: str, file: UploadFile = File(...)):
                     Nuc_Area = row[5],
                     Mem_Area = row[6],
                     Cyt_Area = row[7],
+                    Stain_Marker_Embeddings = cell_embeddings[id].tolist(),
                     imageID = imageID,
-                    Stain_Marker_Embeddings = cell_embeddings[id]
                 )
-
                 transformed_cell_feature_id.append(rid)
                 session.add(transformed_data)
             session.commit()

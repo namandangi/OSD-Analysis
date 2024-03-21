@@ -4,6 +4,7 @@ from settings import gc, osdConfig
 import dash_bootstrap_components as dbc
 from settings import osdConfig, getId
 import dash_bootstrap_components as dbc
+import requests
 
 import random
 import json
@@ -15,13 +16,13 @@ def get_random_color():
     b = random.randint(0, 255)
     return f"rgb({r}, {g}, {b})"
 
-
+imageID = "65240a2ec1ae16db59f790bb"
 sampleTileSrc = {
     "label": "CDG Example",
     "value": 2,
     "tileSources": [
         {
-            "tileSource": "https://candygram.neurology.emory.edu/api/v1/item/65240a2ec1ae16db59f790bb/tiles/dzi.dzi",
+            "tileSource": f"https://candygram.neurology.emory.edu/api/v1/item/{imageID}/tiles/dzi.dzi",
             "x": 0,
             "y": 0,
             "opacity": 1,
@@ -75,16 +76,6 @@ mouseDisplay = dbc.Col(
 )
 
 
-# @callback(
-#     Output("debugOutputDiv", "children"),
-#     Output("rawFeatureData_store", "data"),
-#     Input("sample_select", "value"),
-# )
-# def updateDebugOutputDiv(value):
-#     print("CLUSTER THE FARK OUT OF IT!!!")
-#     return f"Selected {value}", no_update
-
-
 genImageCluster = dbc.Col(
     [
         dbc.Button("Generate Image Cluster", id="genImageCluster", color="primary"),
@@ -96,11 +87,28 @@ genImageCluster = dbc.Col(
 
 curObjDisp = dbc.Col([html.Div(id="curObject_disp", className="card-text")], width=4)
 
+
+order_by_opts = [{'label': 'Cell Area', 'value': 'Cell_Area'},
+                 {'label': 'Nuc_Area', 'value': 'Nuc_Area'},
+                 {'label': 'Cyt_Area', 'value': 'Cyt_Area'},
+                 {'label': 'Mem Area', 'value': 'Mem_Area'},
+                 {'label': 'Percent Stroma', 'value': 'Percent_Stroma'},
+                 {'label': 'Percent Epithelium', 'value': 'Percent_Epithelium'},
+                 ]
+
+menu_opts = dbc.Col([
+    dbc.Row(html.Div([html.Label('Radius: '), dcc.Input(id='radius-input', type='number', value=100, min=0, step=1)])),
+    dbc.Row(html.Div([html.Label('Limit: '), dcc.Input(id='limit-input', type='number', value=10, min=1, step=1) ])),
+    dbc.Row(html.Div([html.Label('Criteria:'),dcc.Dropdown(id='criteria-dropdown',options=order_by_opts,value='Cell_Area')])),
+    dbc.Row(dbc.Button("Find Similar", id="find-similar", color="primary"), style={"left-margin": "1em"}),
+    dcc.Store(id='state')
+])
+
 mxifViewer_layout = html.Div(
     [
         dbc.Row(
-            [mouseDisplay, curObjDisp, genImageCluster, simpleSelector],
-            style={"height": "100px"},
+            [mouseDisplay, curObjDisp, menu_opts, genImageCluster, simpleSelector],
+            style={"height": "150px"},
         ),
         dbc.Row(mxif_osdViewer),
         dbc.Row(dbc.Button("Plot Points", id="redraw-overlay", color="primary"), style={"left-margin": "1em"})
@@ -110,44 +118,27 @@ mxifViewer_layout = html.Div(
 
 
 @callback(
-    Output("curObject_disp", "children"), Input("osdMxif_viewer", "curShapeObject")
+    Output("curObject_disp", "children"), Input("osdMxif_viewer", "curShapeObject"), Input("state", "data")
 )
-def update_curShapeObject(curShapeObject):
+def update_curShapeObject(curShapeObject, data):
 
-    print(curShapeObject, "is current shape detected..")
+    print("is current shape detected..", data)
     if curShapeObject:
-        return json.dumps(curShapeObject.get("userdata", {}))
+        return json.dumps(curShapeObject.get("userdata", {}).get("allDaStuff", {}))
     else:
         return no_update
 
 
-# @callback(Output("debugOutputDiv", "children"),)
-# def eventuallyGenerateImageCluster(n_clicks):
-#     print("Generating Image Cluster")
-#     return f"Clicked {n_clicks} times"
-
 colorPalette = ["red", "green", "blue", "orange", "yellow"]
 
-
-@callback(
-    Output("osdMxif_viewer", "inputToPaper"),
-    Input("rawFeatureData_store", "data"),
-    Input("redraw-overlay", "n_clicks"),
-    Input("genImageCluster", "n_clicks"),
-)
-def renderCellsonOSDViewer(clusterData, redrawClicked, genImageClusterClicked):
-    print(f"cluster data: {clusterData[0]}")
-
-    ctx = callback_context.triggered_id
-
+def renderAllCells(ctx, clusterData, genImageClusterClicked):
     shapesToAdd = []
     for idx, s in enumerate(
-        clusterData[:5]
+        clusterData[:15]
     ):  ### Just do the first 500 rows for now
 
         color = get_random_color()
         if "genImageCluster" in ctx and genImageClusterClicked is not None:
-            # print("You were clickity clackity", genImageClusterClicked)
             color = colorPalette[idx % len(colorPalette)]
 
         si = get_circle_instructions(
@@ -165,7 +156,89 @@ def renderCellsonOSDViewer(clusterData, redrawClicked, genImageClusterClicked):
             {"type": "drawItems", "itemList": shapesToAdd},
         ]
     }
+    
+@callback(
+    Output('state', 'data'),
+    Input("radius-input", "value"),
+    Input("limit-input", "value"),
+    Input("criteria-dropdown", "value"),
+    Input("osdMxif_viewer", "curShapeObject"),
+    State("state", "data")
+)
+def updateState(radius, limit, criteria, currObj, state):
+    if currObj is None and state is not None:
+        currObj = state['currObj'] # keep the currObj as it is --> reset it to last non null obj
+    return {
+        "radius": radius,
+        "limit": limit,
+        "criteria": criteria,
+        "currObj": currObj
+    }
+    
+@callback(
+    Output("osdMxif_viewer", "inputToPaper"),
+    Input("rawFeatureData_store", "data"),    
+    Input("redraw-overlay", "n_clicks"),
+    Input("genImageCluster", "n_clicks"),
+)
+def renderCellsonOSDViewer(clusterData, redrawClicked, genImageClusterClicked):
+    print(f"cluster data: {clusterData[0]}")
 
+    ctx = callback_context.triggered_id
+    result = renderAllCells(ctx, clusterData, genImageCluster)
+
+    return result
+
+
+@callback(
+    Output("osdMxif_viewer", "inputToPaper", allow_duplicate=True),
+    Input("find-similar", "n_clicks"),
+    State("state", "data"),
+    prevent_initial_call=True
+)
+def renderSimilarCells(similarClicked, state):
+    shapesToAdd = [state["currObj"]]
+    print("testsssds", state["currObj"])
+    payload = {
+    'x': state["currObj"]["userdata"]["allDaStuff"]["Cell_Centroid_X"],
+    'y': state["currObj"]["userdata"]["allDaStuff"]["Cell_Centroid_Y"],
+    'dst': state["radius"],
+    'imageID': imageID,    
+    'lmt': state["limit"],
+    'order_list': state["criteria"]
+    }
+    # container name to allow 2 containers to talk with each other since they are in the same network
+    api_url = 'http://osd-analysis-api:85/get-similar-feat'
+    # api_url = f'http://127.0.0.1:85/get-similar-feat?x={x}&y={y}&dst={radius}&imageID={imageID}&lmt={limit}&order_list={criteria}'
+    
+    print(api_url, payload)
+    try:
+        # response = requests.get('https://dummyjson.com/products/1')
+        response = requests.get(api_url, params=payload)
+        # print(response.url)
+        neighbors = response.json()
+        # print("neighsss:  ", neighbors)
+        for neigh in neighbors:
+            color = get_random_color()
+            si = get_circle_instructions(
+                int(neigh["Cell_Centroid_X"]),
+                int(neigh["Cell_Centroid_Y"]),
+                8,
+                color,  ## TO MAKE BASED ON CLASS..
+                {"class": "cell", "allDaStuff": neigh},
+            )
+            shapesToAdd.append(si)
+            
+        print(len(shapesToAdd))
+    except Exception as e:
+        return html.Div(f'Error fetching data: {e}')
+    return {
+        "actions": [
+            {"type": "clearItems"},
+            {"type": "drawItems", "itemList": shapesToAdd},
+        ]
+    }
+    # return {}
 
 ## This updates the mouse tracker output
 @callback(
@@ -178,41 +251,6 @@ def update_mouseCoords(curMousePosition):
         else ""
     )
 
-# @callback(
-#     # Output("osdMxif_viewer", "inputToPaper"), 
-#     Output("currPoint_disp", "children"),
-#     Input("osdMxif_viewer", "curMousePosition"),
-#     Input("rawFeatureData_store", "data"),
-# )
-# def update_curCursor(curMousePosition, clusterData):
-
-#     return (
-#         f'{int(curMousePosition["x"])},{int(curMousePosition["y"])}'
-#         if curMousePosition["x"] is not None
-#         else ""
-#     )
-#     # return {
-#     #     "actions": [
-#     #         {"type": "clearItems"},
-#     #         {"type": "drawItems", "itemList": shapesToAdd},
-#     #     ]
-#     # }
-
-# {'label': 1, ']': 1726, 'centroid-0': 214.33545770567787, 'centroid-1': 3238.139049826188, 'intensity_mean_ACTININ': 1377.1819184123483, 'intensity_mean_BCATENIN': 5453.981256890849, 'intensity_mean_CD11B': 70.35170893054024, 'intensity_mean_CD20': 222.2844542447629, 'intensity_mean_CD3D': 2814.541345093716, 'intensity_mean_CD45B': 0, 'intensity_mean_CD45': 122.56339581036384, 'intensity_mean_CD4': 794.1565600882029, 'intensity_mean_CD68': 1089.0738699007718, 'intensity_mean_CD8': 476.13340683572216, 'intensity_mean_CGA': 110.7805953693495, 'intensity_mean_COLLAGEN': 424.9173098125689, 'intensity_mean_COX2': 693.9834619625137, 'intensity_mean_DAPI': 2043.550165380375, 'intensity_mean_ERBB2': 1225.8202866593165, 'intensity_mean_FOXP3': 0, 'intensity_mean_GACTIN': 2672.4189636163173, 'intensity_mean_HLAA': 4471.524807056229, 'intensity_mean_LYSOZYME': 123.78610804851158, 'intensity_mean_MUC2': 1057.851157662624, 'intensity_mean_NAKATPASE': 2098.327453142227, 'intensity_mean_OLFM4': 145.1047409040794, 'intensity_mean_PANCK': 8892.259095920617, 'intensity_mean_PCNA': 272.10363836824695, 'intensity_mean_PDL1': 1.0871003307607496, 'intensity_mean_PEGFR': 1813.5038588754132, 'intensity_mean_PSTAT3': 670.1907386990077, 'intensity_mean_SMA': 37.18853362734289, 'intensity_mean_SNA': 3938.1642778390296, 'intensity_mean_SOX9': 179.20948180815876, 'intensity_mean_VIMENTIN': 0.0209481808158765, 'epithelial': 1, 'slide': 'MAP01938_0000_0E_01', 'region': 1}
-
-
-### Create a callback to render the points on the image
-
-
-#   si = get_box_instructions(
-#             paperOutput["data"]["point"]["x"],
-#             paperOutput["data"]["point"]["y"],
-#             paperOutput["data"]["size"]["width"],
-#             paperOutput["data"]["size"]["height"],
-#             colors[0],
-#             {"class": classes[0]},
-#         )
-#         currentShapeData.append(si)
 
 def get_box_instructions(x, y, w, h, color, userdata={}):
     props = osdConfig.get("defaultStyle") | {
