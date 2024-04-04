@@ -18,7 +18,6 @@ from .utils import computeColorSimilarityForFeatureSet
 
 from .services import engine, create_db_and_tables
 from .models import DSAImage, CellFeatures
-# from .models import SimpleRectangles, SimplePoint
 from .utils import extend_dict, pretify_address
 
 app = FastAPI()

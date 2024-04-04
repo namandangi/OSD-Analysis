@@ -10,11 +10,15 @@ import random
 import json
 
 
-def get_random_color():
-    r = random.randint(0, 255)
-    g = random.randint(0, 255)
-    b = random.randint(0, 255)
+def get_random_color(seed = None, decay = 1):
+    random.seed(seed)
+    r = random.randint(0, 255) * decay
+    g = random.randint(0, 255) * decay
+    b = random.randint(0, 255) * decay
     return f"rgb({r}, {g}, {b})"
+
+def decrease_expo(initial_opacity, decay_factor):
+    return initial_opacity * decay_factor
 
 imageID = "65240a2ec1ae16db59f790bb"
 sampleTileSrc = {
@@ -97,8 +101,8 @@ order_by_opts = [{'label': 'Cell Area', 'value': 'Cell_Area'},
                  ]
 
 menu_opts = dbc.Col([
-    dbc.Row(html.Div([html.Label('Radius: '), dcc.Input(id='radius-input', type='number', value=100, min=0, step=1)])),
-    dbc.Row(html.Div([html.Label('Limit: '), dcc.Input(id='limit-input', type='number', value=10, min=1, step=1) ])),
+    dbc.Row(html.Div([html.Label('Radius: '), dcc.Input(id='radius-input', type='number', value=700, min=0, step=1)])),
+    dbc.Row(html.Div([html.Label('Limit: '), dcc.Input(id='limit-input', type='number', value=1000, min=1, step=1) ])),
     dbc.Row(html.Div([html.Label('Criteria:'),dcc.Dropdown(id='criteria-dropdown',options=order_by_opts,value='Cell_Area')])),
     dbc.Row(dbc.Button("Find Similar", id="find-similar", color="primary"), style={"left-margin": "1em"}),
     dcc.Store(id='state')
@@ -123,8 +127,11 @@ mxifViewer_layout = html.Div(
 def update_curShapeObject(curShapeObject, data):
 
     print("is current shape detected..", data)
+    keys_to_include = ['UniqueID', 'Cell_Centroid_X', 'Cell_Centroid_Y', 'Cell_Area']    
     if curShapeObject:
-        return json.dumps(curShapeObject.get("userdata", {}).get("allDaStuff", {}))
+        data = curShapeObject.get("userdata", {}).get("allDaStuff", {})
+        extracted_data = {key: data[key] for key in keys_to_include if key in data}
+        return json.dumps(extracted_data)
     else:
         return no_update
 
@@ -146,6 +153,7 @@ def renderAllCells(ctx, clusterData, genImageClusterClicked):
             int(s["Cell_Centroid_Y"]),
             4,
             color,  ## TO MAKE BASED ON CLASS..
+            0.5,
             {"class": "cell", "allDaStuff": s},
         )
         shapesToAdd.append(si)
@@ -209,24 +217,30 @@ def renderSimilarCells(similarClicked, state):
     }
     # container name to allow 2 containers to talk with each other since they are in the same network
     api_url = 'http://osd-analysis-api:85/get-similar-feat'
-    # api_url = f'http://127.0.0.1:85/get-similar-feat?x={x}&y={y}&dst={radius}&imageID={imageID}&lmt={limit}&order_list={criteria}'
     
     print(api_url, payload)
     try:
-        # response = requests.get('https://dummyjson.com/products/1')
         response = requests.get(api_url, params=payload)
-        # print(response.url)
         neighbors = response.json()
-        # print("neighsss:  ", neighbors)
+        opacity = 1
+        color_seed = 123
+        color_decay_rate = 1
+        radius = 12
+        print(len(neighbors))
         for neigh in neighbors:
-            color = get_random_color()
+            radius = decrease_expo(radius, 0.992)
+            color_decay_rate = decrease_expo(color_decay_rate, 0.992)
+            opacity = decrease_expo(opacity, 0.992)
             si = get_circle_instructions(
                 int(neigh["Cell_Centroid_X"]),
                 int(neigh["Cell_Centroid_Y"]),
-                8,
-                color,  ## TO MAKE BASED ON CLASS..
+                radius,
+                get_random_color(color_seed, color_decay_rate),  ## TO MAKE BASED ON CLASS..
+                opacity,
                 {"class": "cell", "allDaStuff": neigh},
             )
+            
+            
             shapesToAdd.append(si)
             
         print(len(shapesToAdd))
@@ -265,13 +279,13 @@ def get_box_instructions(x, y, w, h, color, userdata={}):
     return command
 
 
-def get_circle_instructions(x, y, r, color, userdata={}):
+def get_circle_instructions(x, y, r, color, opacity, userdata={}):
     props = osdConfig.get("defaultStyle") | {
         "center": [x, y],
         "radius": r,
         "fillColor": color,
         "strokeColor": color,
-        "fillOpacity": 0.01,
+        "fillOpacity": opacity,
     }
     userdata["objectId"] = getId()
     command = {"paperType": "Path.Circle", "args": [props], "userdata": userdata}
