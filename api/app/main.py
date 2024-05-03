@@ -10,6 +10,8 @@ import pandas as pd
 import csv
 import codecs
 import json
+import io
+from io import BytesIO
 import random, requests
 import girder_client
 from typing import List, Optional
@@ -143,7 +145,13 @@ async def get_cell_feature_by_id(UniqueID: str):
 async def get_cell_features_by_image(imageID: str, lmt: Optional[int] = 50000):
     with Session(engine) as session:
         try:
+            check_if_exists = session.query(CellFeatures).filter(CellFeatures.imageID == imageID).first()
+            
+            if check_if_exists == None:
+                await fetchFromCloud(imageID, '647676a3f439a1682af4cd73')
+                
             features = session.query(CellFeatures).filter(CellFeatures.imageID == imageID).order_by(CellFeatures.localFeatureId.asc()).limit(lmt).all()
+            
             convert_tolist = lambda x : x.tolist()
             result = []
             for feature in features:
@@ -156,15 +164,43 @@ async def get_cell_features_by_image(imageID: str, lmt: Optional[int] = 50000):
         except Exception as e:
             print(f"Retriving images failed due to {e}")
 
+@app.get("/get-csv/{imageID}")
+async def fetchFromCloud(imageID: str, csvID: Optional[str] = '647676a3f439a1682af4cd73'):
+    # itemID = '647676a3f439a1682af4cd73'
+    gc = girder_client.GirderClient(apiUrl="https://candygram.neurology.emory.edu/api/v1")
+    gc.authenticate(apiKey='iG7P5bfJ7x7XnXI8v7I3LzXXkQ5YPjZgcF9NQVwY')
+    
+    itemInfo = gc.getItem(csvID)
+    filesInItem = gc.listFile(csvID)
+    
+    for fi in filesInItem:
+        if (fi['name'] == itemInfo['name']):
+            csvFileInfo = fi
+            break
+ 
+ 
+    fio = io.BytesIO()  ### File like object to store the CSV File
+    m = gc.get(
+        "file/%s/download?contentDisposition=inline" % csvFileInfo["_id"], jsonResp=False
+    )
+    fio.seek(0)
+    csvraw = m.content.decode("utf-8-sig")  ## Need to make this more robust
+    
+    csv_upload_file = UploadFile(
+        filename="test.csv",
+        file=io.StringIO(csvraw),  # Create a StringIO object from the decoded string
+    )
+    upload_status = await upload_feature_csv(imageID, csv_upload_file)
+    print(f"Upload status: {upload_status}")
+    
+    return upload_status
+
 @app.get("/get-similar-feat")
 async def get_similar_features(x: float, y: float, dst: float, imageID: str, order_list: Optional[str], lmt: Optional[int] = 10):
     with Session(engine) as session:
         try:
             pt = [x,y]
             order_list = order_list.split(",")
-            # query = select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst).order_by(CellFeatures.Nuc_Area)
-            # query = select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst)
-            # query = select(CellFeatures).filter(CellFeatures.imageID == imageID).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst)
             query = select(CellFeatures).filter(CellFeatures.imageID == imageID).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst)
             for order_clause in order_list:
                 if order_clause == "Cell_Area":
@@ -181,10 +217,7 @@ async def get_similar_features(x: float, y: float, dst: float, imageID: str, ord
                     query.order_by(CellFeatures.Percent_Epithelium)
 
             points = session.scalars(query.limit(lmt)) # returns within dist                       
-            
-            # points = session.scalars(select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst).limit(lmt)) # returns within dist
-            # points = session.scalars(select(CellFeatures).filter(CellFeatures.Point_Vector.l2_distance(pt) < dst).order_by(CellFeatures.Cell_Area).limit(lmt)) # returns within dist
-            
+                        
             convert_tolist = lambda x : x.tolist(); 
             result = []
             for ptx in points:
@@ -203,6 +236,8 @@ async def upload_feature_csv(imageID: str, file: UploadFile = File(...)):
                 
         df = pd.read_csv(file.file)
         df.dropna(inplace=True)
+        
+        print(f"Shape of the dataframe: {df.shape}")
 
         feature_id = df.iloc[:, 2].values
         cell_features = df.iloc[:, 3:11].values.astype(float)
@@ -212,22 +247,21 @@ async def upload_feature_csv(imageID: str, file: UploadFile = File(...)):
 
         with Session(engine) as session:
             for id, row in enumerate(cell_features):
-                
                 rid = feature_id[id]
 
                 transformed_data = CellFeatures(
-                    localFeatureId = rid,
-                    Cell_Centroid_X = row[0],
-                    Cell_Centroid_Y = row[1],
-                    Point_Vector = [row[0], row[1]],
-                    Cell_Area = row[2],
-                    Percent_Epithelium = row[3],
-                    Percent_Stroma = row[4],
-                    Nuc_Area = row[5],
-                    Mem_Area = row[6],
-                    Cyt_Area = row[7],
-                    Stain_Marker_Embeddings = cell_embeddings[id].tolist(),
-                    imageID = imageID,
+                    localFeatureId=rid,
+                    Cell_Centroid_X=row[0],
+                    Cell_Centroid_Y=row[1],
+                    Point_Vector=[row[0], row[1]],
+                    Cell_Area=row[2],
+                    Percent_Epithelium=row[3],
+                    Percent_Stroma=row[4],
+                    Nuc_Area=row[5],
+                    Mem_Area=row[6],
+                    Cyt_Area=row[7],
+                    Stain_Marker_Embeddings=cell_embeddings[id].tolist(),
+                    imageID=imageID,
                 )
                 transformed_cell_feature_id.append(rid)
                 session.add(transformed_data)
