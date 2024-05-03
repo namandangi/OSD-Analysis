@@ -126,7 +126,6 @@ async def get_cell_features(lmt: Optional[int] = 5):
 @app.get("/get-feature/")
 async def get_cell_feature_by_id(UniqueID: str):
     with Session(engine) as session:
-        print("UniqueID", UniqueID)
         try:
             feature = session.query(CellFeatures).filter(CellFeatures.localFeatureId == UniqueID).first() # UniqueID
             
@@ -141,10 +140,10 @@ async def get_cell_feature_by_id(UniqueID: str):
 
 # get all features for a given image
 @app.get("/get-features-by-image/{imageID}")
-async def get_cell_features_by_image(imageID: str, lmt: Optional[int] = 5000):
+async def get_cell_features_by_image(imageID: str, lmt: Optional[int] = 50000):
     with Session(engine) as session:
         try:
-            features = session.query(CellFeatures).filter(CellFeatures.imageID == imageID).limit(lmt).all()
+            features = session.query(CellFeatures).filter(CellFeatures.imageID == imageID).order_by(CellFeatures.localFeatureId.asc()).limit(lmt).all()
             convert_tolist = lambda x : x.tolist()
             result = []
             for feature in features:

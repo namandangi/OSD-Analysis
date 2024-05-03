@@ -174,7 +174,7 @@ mxifViewer_layout = html.Div(
 def update_curShapeObject(curShapeObject, data):
 
     # print("is current shape detected..", data)
-    keys_to_include = ['UniqueID', 'Cell_Centroid_X', 'Cell_Centroid_Y', 'Cell_Area']    
+    keys_to_include = ['localFeatureId', 'Cell_Centroid_X', 'Cell_Centroid_Y', 'Cell_Area']    
     if curShapeObject:
         data = curShapeObject.get("userdata", {}).get("allDaStuff", {})
         extracted_data = {key: data[key] for key in keys_to_include if key in data}
@@ -188,7 +188,7 @@ colorPalette = ["red", "green", "blue", "orange", "yellow"]
 def renderAllCells(ctx, clusterData, genImageClusterClicked):
     shapesToAdd = []
     for idx, s in enumerate(
-        clusterData[:15]
+        clusterData[:150]
     ):  ### Just do the first 500 rows for now
 
         color = get_random_color()

@@ -57,9 +57,17 @@ featureGraphs_row = dbc.Row(
     ]
 )
 
-def get_feature_list(df):
-    api_url = 'http://osd-analysis-api:85/get-features-by-image/'
-    return list(df.columns)
+@memory.cache
+def get_feature_list(selected_image):    
+    feature_list = []
+    try:
+        api_url = f'http://osd-analysis-api:85/get-features-by-image/{selected_image}?lmt={10000}'
+        response = requests.get(api_url).json()
+        feature_list = response['features']
+        print(feature_list[0]["localFeatureId"])
+    except Exception as e:
+        print(f'Error fetching data: {e}')
+    return feature_list
 
 
 @memory.cache
@@ -106,7 +114,7 @@ def loadMetaDataTable(_):
     try:
         response = requests.get(api_url)
         image_list = response.json()
-        print(f"image_list: {image_list}")
+        # print(f"image_list: {image_list}")
     except Exception as e:
         return html.Div(f'Error fetching data: {e}')
     return image_list
@@ -115,21 +123,25 @@ def loadMetaDataTable(_):
 
 
 ### This will likely change in the future, but this will load the current feature set using a hidden div as a trigger
-@callback(Output("rawFeatureData_store", "data"), Input("initFeatureDiv", "children"))
-def loadFeatureData(_):
+@callback(Output("rawFeatureData_store", "data"), Input("initFeatureDiv", "children"), Input("image_select", "value"))
+def loadFeatureData(_, selected_image):
     global df
-    df = load_dataset(sampleCSVFile)
-
-    print("Data was loaded and clusters computed")
-
+       
+    feature_list = get_feature_list(selected_image)
+    df = pd.DataFrame(feature_list)
+    
     dataStoreCols = [
-        "UniqueID",
+        "localFeatureId",
         "Cell_Centroid_X",
         "Cell_Centroid_Y",
         "Cell_Area",
-        "cluster_labels",
     ]
-    return df[dataStoreCols].to_dict("records")
+    
+    filtered_df = df[dataStoreCols]
+    df['cluster_labels'] = None
+    
+    print(filtered_df.head())
+    return filtered_df.to_dict("records")
 
 
 @callback(
@@ -146,7 +158,8 @@ def updateFeatureList(clusterData):
         if col.startswith("Mean_" or col.startswith("Median_"))
     ]
     columnList = [{"label": col, "value": col} for col in filtered_columns]
-    # print(columnList, "columnList")
+    if(len(columnList) == 0):
+        return [], []
     return columnList, columnList[0]["value"]
 
 
