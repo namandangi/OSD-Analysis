@@ -40,7 +40,7 @@ def read_root():
 
 # IMAGE ENDPOINTS
 
-@app.get("/lookupImageId")
+@app.get("/get-image/{imageId}")
 async def lookupImageById(imageId: str):
     with Session(engine) as session:
         imageInfo = session.query(DSAImage).filter(DSAImage.imageId == imageId).first()
@@ -59,14 +59,12 @@ async def findImageByName(imageName: str):
     return imageInfo
 
 
-
 @app.get("/get-image-list/")
 async def get_imageList():
     with Session(engine) as session:
         try:
-            images = session.query(DSAImage).all()
-            print(len(images))
-            return images
+            images = session.query(DSAImage.imageId, DSAImage.imageName).all()
+            return [{"imageId": image_id, "imageName": image_name} for image_id, image_name in images]
         except Exception as e:
             print(f"Retriving images failed due to {e}")
 
@@ -117,10 +115,10 @@ async def get_cell_features(lmt: Optional[int] = 5):
             print(f"found {len(features)} records")
             convert_tolist = lambda x : x.tolist(); 
             for feature in features:
-                if feature.Point_Vector: 
-                    feature.Point_Vector = convert_tolist(feature.Point_Vector)
-                if feature.Stain_Marker_Embeddings:
-                    feature.Stain_Marker_Embeddings = convert_tolist(feature.Stain_Marker_Embeddings)
+                if feature.Point_Vector is None:
+                    continue 
+                feature.Point_Vector = convert_tolist(feature.Point_Vector)
+                feature.Stain_Marker_Embeddings = convert_tolist(feature.Stain_Marker_Embeddings)
             return features
         except Exception as e:
             print(f"Retriving images failed due to {e}")
@@ -138,6 +136,24 @@ async def get_cell_feature_by_id(UniqueID: str):
             if feature.Stain_Marker_Embeddings:
                 feature.Stain_Marker_Embeddings = convert_tolist(feature.Stain_Marker_Embeddings)
             return feature            
+        except Exception as e:
+            print(f"Retriving images failed due to {e}")
+
+# get all features for a given image
+@app.get("/get-features-by-image/{imageID}")
+async def get_cell_features_by_image(imageID: str, lmt: Optional[int] = 5000):
+    with Session(engine) as session:
+        try:
+            features = session.query(CellFeatures).filter(CellFeatures.imageID == imageID).limit(lmt).all()
+            convert_tolist = lambda x : x.tolist()
+            result = []
+            for feature in features:
+                if feature.Point_Vector is None:
+                    continue 
+                feature.Point_Vector = convert_tolist(feature.Point_Vector)
+                feature.Stain_Marker_Embeddings = convert_tolist(feature.Stain_Marker_Embeddings)
+                result.append(feature)
+            return {"count": len(result), "features": result}
         except Exception as e:
             print(f"Retriving images failed due to {e}")
 

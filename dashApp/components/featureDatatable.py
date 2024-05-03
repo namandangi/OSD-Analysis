@@ -12,6 +12,7 @@ from sklearn.preprocessing import StandardScaler
 import dash_ag_grid
 from settings import memory
 import plotly.graph_objects as go
+import requests
 
 # sampleCSVFile = "data/PosStats_MAP01938_0000_0E_01_region_001_labelled.csv"
 sampleCSVFile = "data/PosStats_MAP01938_0000_0E_01_region_001.csv"
@@ -56,6 +57,10 @@ featureGraphs_row = dbc.Row(
     ]
 )
 
+def get_feature_list(df):
+    api_url = 'http://osd-analysis-api:85/get-features-by-image/'
+    return list(df.columns)
+
 
 @memory.cache
 def computeClusterSets(data, setSize=2000, n_clusters=9):
@@ -93,40 +98,20 @@ def computeClusterSets(data, setSize=2000, n_clusters=9):
     print(df.head())
     return df
 
+# function to load metaDataTable_layout
+@callback(Output("metaData_store", "data"), Input("initMetaDataDiv", "children"))
+def loadMetaDataTable(_):
+    api_url = 'http://osd-analysis-api:85/get-image-list'
+    image_list = []
+    try:
+        response = requests.get(api_url)
+        image_list = response.json()
+        print(f"image_list: {image_list}")
+    except Exception as e:
+        return html.Div(f'Error fetching data: {e}')
+    return image_list
 
-# def computeClusterSets(data, setSize=2000, n_clusters=9):
-#     ### this will use various clustering algorithm to compute the clusters, currently just using neha's default
-#     df = pd.DataFrame(data)
-#     all_columns = df.columns
-#     filtered_columns = [
-#         col
-#         for col in all_columns
-#         if col.startswith("Mean_" or col.startswith("Median_"))
-#     ]
-#     # df = df.iloc[0:setSize]
-#     cluster_data = df[filtered_columns]
-#     scaler = StandardScaler()
-#     cluster_data = scaler.fit_transform(df[filtered_columns])
-#     cluster = AgglomerativeClustering(
-#         n_clusters=n_clusters, affinity="euclidean", linkage="ward"
-#     )
 
-#     cluster.fit(cluster_data.values)
-#     labels = cluster.labels_
-#     cluster_data["Cluster labels"] = labels
-
-#     # Get the other columns
-#     other_columns = [col for col in all_columns if col not in filtered_columns]
-
-#     # Assuming other_data is your other DataFrame
-#     other_data = other_data.set_index(df.index)
-
-#     # Concatenate the other columns back to the DataFrame
-#     df = pd.concat([cluster_data, df[other_columns]], axis=1)
-
-#     ## figure this out later
-#     print(df.head())
-#     return df
 
 
 ### This will likely change in the future, but this will load the current feature set using a hidden div as a trigger
@@ -135,19 +120,14 @@ def loadFeatureData(_):
     global df
     df = load_dataset(sampleCSVFile)
 
-    # data = pd.DataFrame(df)
-    # print(len(data), "records loaded from the CSV file")
-    # clusterSet = computeClusterSets(df, setSize=10000, n_clusters=9)
-    # print(clusterSet.head())
     print("Data was loaded and clusters computed")
-    # print(df.columns)
+
     dataStoreCols = [
         "UniqueID",
         "Cell_Centroid_X",
         "Cell_Centroid_Y",
         "Cell_Area",
         "cluster_labels",
-        # "Cluster labels",
     ]
     return df[dataStoreCols].to_dict("records")
 
@@ -174,24 +154,9 @@ featureDataTable_layout = html.Div(
     [
         dcc.Store(id="rawFeatureData_store"),
         html.Div(id="initFeatureDiv", style={"display": "none"}),
+        dcc.Store(id="metaData_store"),
+        html.Div(id="initMetaDataDiv", style={"display": "none"}),
         featureGraphs_row,
-        # dbc.Row(
-        #     [
-        #         dash_ag_grid.AgGrid(
-        #             id="featureSet_datatable",
-        #             defaultColDef={
-        #                 "filter": "agSetColumnFilter",
-        #                 "editable": True,
-        #                 # "flex": 1,
-        #                 "filterParams": {"debounceMs": 2500},
-        #                 "floatingFilter": True,
-        #                 "sortable": True,
-        #                 "resizable": True,
-        #             },
-        #             style={"height": "300px"},
-        #         )
-        #     ]
-        # ),
     ]
 )
 
@@ -230,26 +195,3 @@ def generateClassDistroGraph(clusterData):
     # fig = px.pie(df, x="cluster_labels")
     return dcc.Graph(figure=fig)
 
-
-# @callback(
-#     Output("right-col-graph", "children"),
-#     Input("rawFeatureData_store", "data"),
-#     Input("featureList_selector", "value"),
-#     # background=True,
-# )
-# def IntensityHistogram(clusterData, featureName):
-#     df = pd.DataFrame(clusterData)
-#     all_columns = df.columns
-#     filtered_columns = [col for col in all_columns if col.startswith("intensity")]
-
-#     # my_df = load_dataset(sampleCSVFile)
-
-#     fig = px.histogram(
-#         df,
-#         x=featureName,
-#         nbins=50,
-#         title=f"Histogram of Intensity {featureName}",  # .replace('intensity','')}",
-#     )
-#     fig.update_xaxes(title_text="Intensities")
-#     fig.update_yaxes(title_text="Frequency")
-#     return dcc.Graph(figure=fig)
